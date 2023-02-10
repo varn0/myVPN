@@ -18,6 +18,12 @@ Create a plan
 terraform plan -out=planfile
 ```
 
+Import default security group
+
+```bash
+terraform import aws_security_group.default $(aws ec2 describe-security-groups --filters Name=group-name,Values=default | jq -r '.SecurityGroups[0].GroupId')
+```
+
 Apply the plan
 
 ```bash
@@ -31,4 +37,14 @@ Destroy the infrastructure
 ```bash
 terraform plan -destroy -out=destroyplan
 terraform apply destroyplan
+```
+
+
+# Create a new user
+
+```bash
+public_name=$(terraform output -json | jq -r '.public_dns.value')
+public_ip=$(terraform output -json | jq -r '.public_ip.value')
+
+
 ```
