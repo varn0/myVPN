@@ -22,7 +22,7 @@ apt dist-upgrade -y
 apt install -y wireguard
 
 if [ ! -d /etc/wireguard ]; then
-  echo "Can't find wireguard folder"
+  echo "Can't find wireguard folder" && exit 1
 else
   wg genkey | tee /etc/wireguard/privatekey | wg pubkey | tee /etc/wireguard/publickey > /dev/null
 fi
@@ -46,3 +46,10 @@ systemctl start wg-quick@$WG_IF.service
 
 sed -i "s/#net.ipv4.ip_forward=1/net.ipv4.ip_forward=1/" /etc/sysctl.conf
 sysctl -p
+
+# create user and make it root
+useradd -m -s /bin/bash josefo
+
+# add user to sudoers
+echo "josefo ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers
+
