@@ -37,3 +37,4 @@ destroyplan
 planfile
 .terraform.lock.hcl
 wg0.conf
+scripts/*.png

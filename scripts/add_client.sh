@@ -1,28 +1,40 @@
 #!/bin/bash
 
-set -eou pipefail
+set -eoux pipefail
 
 
-wg_client=${1:?"set client last octet"}
-arg2=${2:-"--local-client"}
-arg3=${3:-"--local-server"}
-public_name="$PUBLIC_NAME"
-public_ip="$PUBLIC_IP"
+# add above args  with getopts
+srv_port="65443"
+local_client="false"
 
+while getopts ":c:p:l:u:s:i:" opt; do
+  case $opt in
+    c) wg_client="${OPTARG}"
+    ;;
+    i) srv_public_ip="${OPTARG}"
+    ;;
+    p) srv_port="${OPTARG}"
+    ;;
+    l) local_client="${OPTARG}"
+    ;;
+    u) username="${OPTARG:-ubuntu}"
+    ;;
+    s) srv_ip="${OPTARG:-$srv_public_ip}"
+    ;;
+    \?) echo "Usage: $0 [-c client last octet] [-p server port] [-l local client] [-u username] [-s server ip] [-i server public ip]" >&2
+    ;;
+  esac
+done
 
-if [ "$arg3" == "--local-server" ]; then
-  echo "copying local config"
-  sudo cp /etc/wireguard/wg0.conf /tmp/wg0.conf
-  sudo cp /etc/wireguard/publickey /tmp/publickey
-else
-  echo "copying remote config"
-  ssh ubuntu@$public_name sudo cp /etc/wireguard/wg0.conf /home/ubuntu
-  ssh ubuntu@$public_name sudo cp /etc/wireguard/publickey /home/ubuntu
-  scp ubuntu@$public_name:/home/ubuntu/publickey /tmp/publickey
-  scp ubuntu@$public_name:/home/ubuntu/wg0.conf /tmp/wg0.conf
-  ssh ubuntu@$public_name sudo rm -f /home/ubuntu/wg0.conf
-  ssh ubuntu@$public_name sudo rm -f /home/ubuntu/publickey
-fi
+echo "port$srv_port"
+
+echo "copying remote config"
+ssh $username@$srv_ip sudo cp /etc/wireguard/wg0.conf /home/$username
+ssh $username@$srv_ip sudo cp /etc/wireguard/publickey /home/$username
+scp $username@$srv_ip:/home/$username/publickey /tmp/publickey
+scp $username@$srv_ip:/home/$username/wg0.conf /tmp/wg0.conf
+ssh $username@$srv_ip sudo rm -f /home/$username/wg0.conf
+ssh $username@$srv_ip sudo rm -f /home/$username/publickey
 
 wg_publickey=$(cat /tmp/publickey)
 
@@ -42,17 +54,16 @@ DNS = 1.1.1.1
 PublicKey = $wg_publickey
 AllowedIPs = 0.0.0.0/0
 PresharedKey = $wg_client_presharedkey
-Endpoint = $public_ip:65443
+Endpoint = $srv_public_ip:$srv_port
 PersistentKeepalive=25
 EOF
 
 # if second arg is local send to /etc/wireguard/wg0.conf else copy in current dir
-if [ "$arg2" == "--local-client" ]; then
+if [ "$local_client" == "true" ]; then
   sudo cp wg0.conf /etc/wireguard/wg0.conf
   rm -f ../wg0.conf
-else
-  qrencode -t ansiutf8 < wg0.conf
 fi
+qrencode -t png -o conf.png < wg0.conf
 
 cat << EOF >> /tmp/wg0.conf
 [Peer]
@@ -61,16 +72,11 @@ AllowedIPs = $wg_client_ip
 PresharedKey = $wg_client_presharedkey
 EOF
 
-if [ "$arg3" == "--local-server" ]; then
-  sudo wg-quick down wg0
-  sudo wg-quick up wg0
-else
-  # upload new server configuration and restart wireguard
-  ssh ubuntu@$public_name rm -f /home/ubuntu/wg0.conf
-  scp /tmp/wg0.conf ubuntu@$public_name:/home/ubuntu/wg0.conf
-  ssh ubuntu@$public_name sudo cp /home/ubuntu/wg0.conf /etc/wireguard/wg0.conf
-  ssh ubuntu@$public_name "sudo wg-quick down wg0 && sudo wg-quick up wg0"
-fi
+# upload new server configuration and restart wireguard
+ssh $username@$srv_ip rm -f /home/$username/wg0.conf
+scp /tmp/wg0.conf $username@$srv_ip:/home/$username/wg0.conf
+ssh $username@$srv_ip sudo cp /home/$username/wg0.conf /etc/wireguard/wg0.conf
+ssh $username@$srv_ip "sudo wg-quick down wg0 && sudo wg-quick up wg0"
 
 
 rm -f /tmp/wg0.conf

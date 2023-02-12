@@ -4,8 +4,18 @@
 set -eou pipefail
 
 ### Variables ###
+while getopts ":p:l" opt; do
+  case $opt in
+    p) WG_PORT="${OPTARG}"
+    ;;
+    l) LOCAL_INSTALL="true"
+    ;;
+    \?) echo "Invalid option -$OPTARG" >&2
+    ;;
+  esac
+done
 
-WG_PORT=${1:-"65443"}
+WG_PORT="${WG_PORT:-"65443"}"
 RUNNING_USER=$(who am i | awk '{print $1}')
 SERVER_IF=$(ip route | grep default | awk '{print $5}')
 WG_IF=wg0
@@ -47,9 +57,11 @@ systemctl start wg-quick@$WG_IF.service
 sed -i "s/#net.ipv4.ip_forward=1/net.ipv4.ip_forward=1/" /etc/sysctl.conf
 sysctl -p
 
-# create user and make it root
-useradd -m -s /bin/bash josefo
-
-# add user to sudoers
-echo "josefo ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers
+if [ "$LOCAL_INSTALL" == "true" ]; then
+  exit 0
+else
+  echo "creating user"
+  useradd -m -s /bin/bash josefo
+  echo "josefo ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers
+fi
 
