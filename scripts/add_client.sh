@@ -1,6 +1,6 @@
 #!/bin/bash
 
-set -eoux pipefail
+set -eou pipefail
 
 
 # add above args  with getopts
@@ -11,7 +11,7 @@ while getopts ":c:p:l:u:s:i:" opt; do
   case $opt in
     c) wg_client="${OPTARG}"
     ;;
-    i) srv_public_ip="${OPTARG}"
+    s) srv_public_ip="${OPTARG}"
     ;;
     p) srv_port="${OPTARG}"
     ;;
@@ -19,24 +19,16 @@ while getopts ":c:p:l:u:s:i:" opt; do
     ;;
     u) username="${OPTARG:-ubuntu}"
     ;;
-    s) srv_ip="${OPTARG:-$srv_public_ip}"
+    i) srv_private_ip="${OPTARG:-$srv_public_ip}"
     ;;
-    \?) echo "Usage: $0 [-c client last octet] [-p server port] [-l local client] [-u username] [-s server ip] [-i server public ip]" >&2
+    \?) echo "Usage: $0 [-c client last octet] [-p server port] [-l local client] [-u username] [-i server ip] [-s server public ip]" >&2
     ;;
   esac
 done
 
-echo "port$srv_port"
 
-echo "copying remote config"
-ssh $username@$srv_ip sudo cp /etc/wireguard/wg0.conf /home/$username
-ssh $username@$srv_ip sudo cp /etc/wireguard/publickey /home/$username
-scp $username@$srv_ip:/home/$username/publickey /tmp/publickey
-scp $username@$srv_ip:/home/$username/wg0.conf /tmp/wg0.conf
-ssh $username@$srv_ip sudo rm -f /home/$username/wg0.conf
-ssh $username@$srv_ip sudo rm -f /home/$username/publickey
+srv_wg_publickey=$(ssh "${username}@${srv_public_ip}" "cat /etc/wireguard/publickey")
 
-wg_publickey=$(cat /tmp/publickey)
 
 wg_client_pubkey=$(wg genkey | tee /tmp/privatekey | wg pubkey)
 wg_client_privkey=$(cat /tmp/privatekey)
@@ -51,7 +43,7 @@ Address = $wg_client_ip
 DNS = 1.1.1.1
 
 [Peer]
-PublicKey = $wg_publickey
+PublicKey = $srv_wg_publickey
 AllowedIPs = 0.0.0.0/0
 PresharedKey = $wg_client_presharedkey
 Endpoint = $srv_public_ip:$srv_port
@@ -65,20 +57,15 @@ if [ "$local_client" == "true" ]; then
 fi
 qrencode -t png -o conf.png < wg0.conf
 
-cat << EOF >> /tmp/wg0.conf
-[Peer]
-PublicKey = $wg_client_pubkey
-AllowedIPs = $wg_client_ip
-PresharedKey = $wg_client_presharedkey
+                                      
+ssh "${username}@${srv_public_ip}" << EOF 
+  echo "[Peer]" >> /etc/wireguard/wg0.conf
+  echo "PublicKey = ${wg_client_pubkey}" >> /etc/wireguard/wg0.conf
+  echo "AllowedIPs = ${wg_client_ip}/32" >> /etc/wireguard/wg0.conf
+  wg-quick down wg0
+  wg-quick up wg0
 EOF
 
-# upload new server configuration and restart wireguard
-ssh $username@$srv_ip rm -f /home/$username/wg0.conf
-scp /tmp/wg0.conf $username@$srv_ip:/home/$username/wg0.conf
-ssh $username@$srv_ip sudo cp /home/$username/wg0.conf /etc/wireguard/wg0.conf
-ssh $username@$srv_ip "sudo wg-quick down wg0 && sudo wg-quick up wg0"
 
-
-rm -f /tmp/wg0.conf
 rm -f /tmp/publickey
 rm -f /tmp/privatekey

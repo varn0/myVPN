@@ -47,7 +47,7 @@ PostUp = iptables -A FORWARD -i $WG_IF -j ACCEPT; iptables -A FORWARD -o $WG_IF 
 PostDown = iptables -D FORWARD -i $WG_IF -j ACCEPT; iptables -D FORWARD -o $WG_IF -j ACCEPT; iptables -t nat -D POSTROUTING -o $SERVER_IF -j MASQUERADE
 EOF
 
-iptables -A INPUT -i $SERVER_IF -p udp -m state --state NEW -m udp --dport 65443 -j ACCEPT
+iptables -A INPUT -i "$SERVER_IF" -p udp -m state --state NEW -m udp --dport 65443 -j ACCEPT
 iptables -A FORWARD -i $WG_IF -j ACCEPT
 iptables -A FORWARD -o $WG_IF -j ACCEPT
 
