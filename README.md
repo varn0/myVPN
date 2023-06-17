@@ -42,9 +42,17 @@ terraform apply destroyplan
 
 # Create a new user
 
+
 ```bash
-public_name=$(terraform output -json | jq -r '.public_dns.value')
 public_ip=$(terraform output -json | jq -r '.public_ip.value')
-
-
+add_client.sh -s "$public_ip" -u "ubuntu" -c "5"
+# -s public ip of the remote vpn server
+# -u username of the remote vpn server
+# -c last octet of the client ip address
 ```
+
+
+
+## Ideas
+
+- automate user creation
