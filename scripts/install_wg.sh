@@ -48,13 +48,13 @@ PostDown = iptables -D FORWARD -i $WG_IF -j ACCEPT; iptables -D FORWARD -o $WG_I
 EOF
 
 iptables -A INPUT -i "$SERVER_IF" -p udp -m state --state NEW -m udp --dport 65443 -j ACCEPT
-iptables -A FORWARD -i $WG_IF -j ACCEPT
-iptables -A FORWARD -o $WG_IF -j ACCEPT
+iptables -A FORWARD -i "$WG_IF" -j ACCEPT
+iptables -A FORWARD -o "$WG_IF" -j ACCEPT
 
-systemctl enable wg-quick@$WG_IF.service
-systemctl start wg-quick@$WG_IF.service
+systemctl enable "wg-quick@${WG_IF}.service"
+systemctl start "wg-quick@${WG_IF}.service"
 
-sed -i "s/#net.ipv4.ip_forward=1/net.ipv4.ip_forward=1/" /etc/sysctl.conf
+echo "net.ipv4.ip_forward=1" >> /etc/sysctl.conf
 sysctl -p
 
 if [ "$LOCAL_INSTALL" == "true" ]; then
